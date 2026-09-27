@@ -1,0 +1,6 @@
+.venv/
+__pycache__/
+*.pyc
+data/logbook.txt
+static/backgrounds/*
+!static/backgrounds/.gitkeep
