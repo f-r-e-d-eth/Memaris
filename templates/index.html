@@ -7,22 +7,27 @@
 <body>
   <div id="background"></div><div class="shade"></div>
   <main class="app">
-    <header>
-      <div><h1>Memaris</h1><span>Capture today. Find tomorrow.</span></div>
-      <div class="controls">
-        <button id="newButton">＋ New</button>
-        <button id="backgroundButton" title="Next background">◐</button>
-        <label title="Text color"><input id="colorPicker" type="color" value="#ffffff"></label>
-        <label title="Text size">A <input id="fontSlider" type="range" min="14" max="40" value="22"></label>
-        <label title="Glass transparency">◇ <input id="opacitySlider" type="range" min="20" max="95" value="72"></label>
-      </div>
-    </header>
     <section class="workspace">
-      <aside class="panel sidebar"><h2>Logbook</h2><div id="entries"></div></aside>
+      <aside class="panel sidebar">
+        <div class="sidebar-head">
+          <div><h1>Memaris</h1><span>Capture today. Find tomorrow.</span></div>
+          <button id="newButton">＋ New</button>
+        </div>
+        <div id="entries"></div>
+      </aside>
       <section class="panel editor">
         <button id="dateDisplay" title="Click to change date format"></button>
         <textarea id="entryText" placeholder="What's on your mind?"></textarea>
-        <div class="editor-footer"><span id="status">New entry</span><button id="saveButton">Save</button></div>
+        <div class="editor-footer">
+          <span id="status">New entry</span>
+          <div class="editor-controls">
+            <button id="backgroundButton" title="Next background">◐</button>
+            <label title="Text color"><input id="colorPicker" type="color" value="#ffffff"></label>
+            <label title="Text size">A <input id="fontSlider" type="range" min="14" max="40" value="22"></label>
+            <label title="Glass transparency">◇ <input id="opacitySlider" type="range" min="20" max="95" value="72"></label>
+            <button id="saveButton">Save</button>
+          </div>
+        </div>
       </section>
     </section>
   </main>
