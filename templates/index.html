@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Memaris</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div id="background"></div><div class="shade"></div>
+  <main class="app">
+    <header><div><h1>Memaris</h1><span>Capture today. Find tomorrow.</span></div>
+      <div class="controls"><button id="backgroundButton" title="Next background">◐</button><label>◇ <input id="opacitySlider" type="range" min="20" max="95" value="72"></label></div>
+    </header>
+    <section class="workspace">
+      <aside class="panel sidebar"><h2>Logbook</h2><div id="entries"></div></aside>
+      <section class="panel editor"><div id="now"></div><textarea id="entryText" placeholder="What's on your mind?"></textarea><div class="editor-footer"><span id="status"></span><button id="saveButton">Save</button></div></section>
+    </section>
+  </main>
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
