@@ -2,5 +2,6 @@
 __pycache__/
 *.pyc
 data/logbook.txt
+data/entries/
 static/backgrounds/*
 !static/backgrounds/.gitkeep
