@@ -23,6 +23,13 @@ def entry_path(entry_id):
     return ENTRIES_DIR / f"{entry_id}.json"
 
 
+def parse_event_time(value, fallback):
+    try:
+        return datetime.fromisoformat(str(value)).isoformat(timespec="minutes")
+    except (TypeError, ValueError):
+        return fallback.isoformat(timespec="minutes")
+
+
 def migrate_legacy_log():
     ensure_storage()
     if not LEGACY_LOG.exists() or list(ENTRIES_DIR.glob("*.json")):
@@ -42,6 +49,7 @@ def migrate_legacy_log():
             "id": entry_id,
             "created": dt.isoformat(timespec="seconds"),
             "modified": dt.isoformat(timespec="seconds"),
+            "event_time": dt.isoformat(timespec="minutes"),
             "text": "\n".join(lines[1:]).strip(),
             "color": "#ffffff",
             "background": "",
@@ -56,10 +64,12 @@ def read_entries():
     result = []
     for path in ENTRIES_DIR.glob("*.json"):
         try:
-            result.append(json.loads(path.read_text(encoding="utf-8")))
+            data = json.loads(path.read_text(encoding="utf-8"))
+            data["event_time"] = data.get("event_time") or data.get("created", "")
+            result.append(data)
         except (json.JSONDecodeError, OSError):
             continue
-    return sorted(result, key=lambda e: e.get("created", ""), reverse=True)
+    return sorted(result, key=lambda e: e.get("event_time", e.get("created", "")), reverse=True)
 
 
 @app.get("/")
@@ -85,6 +95,7 @@ def create_entry():
         "id": entry_id,
         "created": now.isoformat(timespec="seconds"),
         "modified": now.isoformat(timespec="seconds"),
+        "event_time": parse_event_time(payload.get("event_time"), now),
         "text": text,
         "color": str(payload.get("color", "#ffffff")),
         "background": str(payload.get("background", "")),
@@ -105,8 +116,10 @@ def update_entry(entry_id):
     text = str(payload.get("text", "")).strip()
     if not text:
         return jsonify({"error": "Entry is empty."}), 400
+    now = datetime.now()
     data.update({
-        "modified": datetime.now().isoformat(timespec="seconds"),
+        "modified": now.isoformat(timespec="seconds"),
+        "event_time": parse_event_time(payload.get("event_time"), datetime.fromisoformat(data.get("event_time") or data["created"])),
         "text": text,
         "color": str(payload.get("color", data.get("color", "#ffffff"))),
         "background": str(payload.get("background", data.get("background", ""))),
