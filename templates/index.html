@@ -16,7 +16,11 @@
         <div id="entries"></div>
       </aside>
       <section class="panel editor">
-        <button id="dateDisplay" title="Click to change date format"></button>
+        <div class="date-row">
+          <button id="dateDisplay" title="Click to change date display format"></button>
+          <button id="editDateButton" title="Change timeline date and time">✎</button>
+          <input id="eventTime" type="datetime-local" aria-label="Timeline date and time">
+        </div>
         <textarea id="entryText" placeholder="What's on your mind?"></textarea>
         <div class="editor-footer">
           <span id="status">New entry</span>
