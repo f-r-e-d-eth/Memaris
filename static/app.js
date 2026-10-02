@@ -1,6 +1,9 @@
 const q=s=>document.querySelector(s);
-const entriesEl=q('#entries'),textEl=q('#entryText'),statusEl=q('#status'),dateEl=q('#dateDisplay'),eventTimeEl=q('#eventTime'),editDateButton=q('#editDateButton'),saveButton=q('#saveButton'),newButton=q('#newButton'),opacitySlider=q('#opacitySlider'),fontSlider=q('#fontSlider'),colorPicker=q('#colorPicker'),backgroundButton=q('#backgroundButton'),backgroundEl=q('#background');
-let entries=[],backgrounds=[],backgroundIndex=0,currentId=null,dateFormat=Number(localStorage.getItem('memarisDateFormat')||0);
+const entriesEl=q('#entries'),textEl=q('#entryText'),statusEl=q('#status'),dateEl=q('#dateDisplay'),eventTimeEl=q('#eventTime'),editDateButton=q('#editDateButton'),recurrenceButton=q('#recurrenceButton'),saveButton=q('#saveButton'),newButton=q('#newButton'),opacitySlider=q('#opacitySlider'),fontSlider=q('#fontSlider'),colorPicker=q('#colorPicker'),backgroundButton=q('#backgroundButton'),backgroundEl=q('#background');
+let entries=[],backgrounds=[],backgroundIndex=0,currentId=null,dateFormat=Number(localStorage.getItem('memarisDateFormat')||0),recurrence='none';
+const recurrenceModes=['none','yearly','biweekly','weekly'];
+const recurrenceLabels={none:'↻ Off',yearly:'↻ Yearly',biweekly:'↻ 2 Weeks',weekly:'↻ Weekly'};
+const recurrenceWindows={yearly:30,biweekly:7,weekly:3};
 const formats=[
  d=>d.toLocaleString('sv-SE',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}),
  d=>d.toLocaleString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}),
@@ -16,6 +19,23 @@ function showDate(value){dateEl.textContent=formats[dateFormat](dt(value))}
 function currentBackground(){return backgrounds[backgroundIndex]||''}
 function eventValue(e){return e.event_time||e.created}
 function todayISO(){return localInputValue().slice(0,10)}
+function setRecurrence(value){recurrence=recurrenceModes.includes(value)?value:'none';recurrenceButton.textContent=recurrenceLabels[recurrence];recurrenceButton.title=recurrence==='none'?'Recurrence: Off':'Recurrence: '+recurrenceLabels[recurrence].replace('↻ ','')+' · upcoming window '+recurrenceWindows[recurrence]+' days'}
+function addYearsSafe(d,years){const r=new Date(d);const month=r.getMonth();r.setFullYear(r.getFullYear()+years);if(r.getMonth()!==month){r.setDate(0)}return r}
+function displayOccurrence(e){
+ const anchor=dt(eventValue(e)),mode=e.recurrence||'none';if(mode==='none')return anchor;
+ const now=new Date(),windowDays=recurrenceWindows[mode],msDay=86400000;
+ let previous,next;
+ if(mode==='yearly'){
+   let candidate=addYearsSafe(anchor,now.getFullYear()-anchor.getFullYear());
+   if(candidate>now){next=candidate;previous=addYearsSafe(candidate,-1)}else{previous=candidate;next=addYearsSafe(candidate,1)}
+ }else{
+   const days=mode==='biweekly'?14:7,step=days*msDay;
+   if(now<anchor){next=anchor;previous=new Date(anchor.getTime()-step)}
+   else{const n=Math.floor((now-anchor)/step);previous=new Date(anchor.getTime()+n*step);next=new Date(previous.getTime()+step)}
+ }
+ const until=(next-now)/msDay;
+ return until>=0&&until<=windowDays?next:previous
+}
 function applyVisual(e={}){
  const glass=e.glass??Number(opacitySlider.value),size=e.font_size??Number(fontSlider.value),color=e.color||colorPicker.value||'#ffffff';
  opacitySlider.value=glass;fontSlider.value=size;colorPicker.value=color;
@@ -26,12 +46,14 @@ function applyVisual(e={}){
 }
 function render(){
  if(!entries.length){entriesEl.innerHTML='<div class="entry-preview">No entries yet.</div>';return}
+ const shown=entries.map(e=>({e,d:displayOccurrence(e)})).sort((a,b)=>b.d-a.d);
  let day='',todayInserted=false,html='';
- for(const e of entries){
-   const value=eventValue(e),d=dt(value),iso=localInputValue(value).slice(0,10);
+ for(const item of shown){
+   const e=item.e,d=item.d,iso=localInputValue(d).slice(0,10);
    if(!todayInserted&&iso<=todayISO()){html+='<div class="today-divider"><span>TODAY</span></div>';todayInserted=true;day=''}
    if(iso!==day){html+='<div class="day">'+esc(iso)+'</div>';day=iso}
-   html+='<div class="entry '+(e.id===currentId?'active':'')+'" data-id="'+e.id+'"><div class="entry-time">'+d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',hour12:false})+'</div><div class="entry-preview" style="color:'+esc(e.color||'#ffffff')+'">'+esc(e.text)+'</div></div>'
+   const recur=e.recurrence&&e.recurrence!=='none'?'<span class="recurrence-mark" title="'+esc(recurrenceLabels[e.recurrence].replace('↻ ',''))+'">↻</span> ':'';
+   html+='<div class="entry '+(e.id===currentId?'active':'')+'" data-id="'+e.id+'"><div class="entry-time">'+recur+d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',hour12:false})+'</div><div class="entry-preview" style="color:'+esc(e.color||'#ffffff')+'">'+esc(e.text)+'</div></div>'
  }
  if(!todayInserted)html+='<div class="today-divider"><span>TODAY</span></div>';
  entriesEl.innerHTML=html;
@@ -39,20 +61,20 @@ function render(){
 }
 function openEntry(id){
  const e=entries.find(x=>x.id===id);if(!e)return;
- currentId=id;textEl.value=e.text;eventTimeEl.value=localInputValue(eventValue(e));showDate(eventValue(e));applyVisual(e);
+ currentId=id;textEl.value=e.text;eventTimeEl.value=localInputValue(eventValue(e));showDate(eventValue(e));setRecurrence(e.recurrence||'none');applyVisual(e);
  statusEl.textContent=e.modified!==e.created?'Edited '+formats[0](dt(e.modified)):'Existing entry';saveButton.textContent='Update';render()
 }
 function newEntry(){
- currentId=null;textEl.value='';eventTimeEl.value=localInputValue();showDate(eventTimeEl.value);statusEl.textContent='New entry';saveButton.textContent='Save';render();textEl.focus()
+ currentId=null;textEl.value='';eventTimeEl.value=localInputValue();showDate(eventTimeEl.value);setRecurrence('none');statusEl.textContent='New entry';saveButton.textContent='Save';render();textEl.focus()
 }
 async function loadEntries(){const r=await fetch('/api/entries');entries=await r.json();render()}
 async function save(){
  const text=textEl.value.trim();if(!text)return;
- const payload={text,event_time:eventTimeEl.value,color:colorPicker.value,background:currentBackground(),glass:Number(opacitySlider.value),font_size:Number(fontSlider.value)};
+ const payload={text,event_time:eventTimeEl.value,recurrence,color:colorPicker.value,background:currentBackground(),glass:Number(opacitySlider.value),font_size:Number(fontSlider.value)};
  saveButton.disabled=true;statusEl.textContent='Saving…';
  const url=currentId?'/api/entries/'+currentId:'/api/entries',method=currentId?'PUT':'POST';
  const r=await fetch(url,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
- if(r.ok){const saved=await r.json();currentId=saved.id;statusEl.textContent='Saved.';saveButton.textContent='Update';await loadEntries();eventTimeEl.value=localInputValue(eventValue(saved));showDate(eventValue(saved))}
+ if(r.ok){const saved=await r.json();currentId=saved.id;statusEl.textContent='Saved.';saveButton.textContent='Update';await loadEntries();eventTimeEl.value=localInputValue(eventValue(saved));showDate(eventValue(saved));setRecurrence(saved.recurrence||'none')}
  else{const d=await r.json();statusEl.textContent=d.error||'Could not save.'}
  saveButton.disabled=false
 }
@@ -66,4 +88,5 @@ backgroundButton.addEventListener('click',()=>{if(!backgrounds.length)return;bac
 dateEl.addEventListener('click',()=>{dateFormat=(dateFormat+1)%formats.length;localStorage.setItem('memarisDateFormat',dateFormat);showDate(eventTimeEl.value)});
 editDateButton.addEventListener('click',()=>{eventTimeEl.showPicker?eventTimeEl.showPicker():eventTimeEl.focus()});
 eventTimeEl.addEventListener('change',()=>showDate(eventTimeEl.value));
+recurrenceButton.addEventListener('click',()=>{setRecurrence(recurrenceModes[(recurrenceModes.indexOf(recurrence)+1)%recurrenceModes.length])});
 (async()=>{await loadBackgrounds();await loadEntries();newEntry()})();
