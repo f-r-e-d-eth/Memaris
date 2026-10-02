@@ -10,6 +10,7 @@ DATA_DIR = BASE_DIR / "data"
 ENTRIES_DIR = DATA_DIR / "entries"
 LEGACY_LOG = DATA_DIR / "logbook.txt"
 BACKGROUND_DIR = BASE_DIR / "static" / "backgrounds"
+RECURRENCES = {"none", "yearly", "biweekly", "weekly"}
 
 app = Flask(__name__)
 
@@ -28,6 +29,11 @@ def parse_event_time(value, fallback):
         return datetime.fromisoformat(str(value)).isoformat(timespec="minutes")
     except (TypeError, ValueError):
         return fallback.isoformat(timespec="minutes")
+
+
+def parse_recurrence(value):
+    value = str(value or "none").lower()
+    return value if value in RECURRENCES else "none"
 
 
 def migrate_legacy_log():
@@ -50,6 +56,7 @@ def migrate_legacy_log():
             "created": dt.isoformat(timespec="seconds"),
             "modified": dt.isoformat(timespec="seconds"),
             "event_time": dt.isoformat(timespec="minutes"),
+            "recurrence": "none",
             "text": "\n".join(lines[1:]).strip(),
             "color": "#ffffff",
             "background": "",
@@ -66,10 +73,11 @@ def read_entries():
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
             data["event_time"] = data.get("event_time") or data.get("created", "")
+            data["recurrence"] = parse_recurrence(data.get("recurrence"))
             result.append(data)
         except (json.JSONDecodeError, OSError):
             continue
-    return sorted(result, key=lambda e: e.get("event_time", e.get("created", "")), reverse=True)
+    return result
 
 
 @app.get("/")
@@ -96,6 +104,7 @@ def create_entry():
         "created": now.isoformat(timespec="seconds"),
         "modified": now.isoformat(timespec="seconds"),
         "event_time": parse_event_time(payload.get("event_time"), now),
+        "recurrence": parse_recurrence(payload.get("recurrence")),
         "text": text,
         "color": str(payload.get("color", "#ffffff")),
         "background": str(payload.get("background", "")),
@@ -120,6 +129,7 @@ def update_entry(entry_id):
     data.update({
         "modified": now.isoformat(timespec="seconds"),
         "event_time": parse_event_time(payload.get("event_time"), datetime.fromisoformat(data.get("event_time") or data["created"])),
+        "recurrence": parse_recurrence(payload.get("recurrence", data.get("recurrence", "none"))),
         "text": text,
         "color": str(payload.get("color", data.get("color", "#ffffff"))),
         "background": str(payload.get("background", data.get("background", ""))),
