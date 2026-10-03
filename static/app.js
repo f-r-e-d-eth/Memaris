@@ -1,5 +1,5 @@
 const q=s=>document.querySelector(s);
-const entriesEl=q('#entries'),textEl=q('#entryText'),statusEl=q('#status'),dateEl=q('#dateDisplay'),eventTimeEl=q('#eventTime'),editDateButton=q('#editDateButton'),recurrenceButton=q('#recurrenceButton'),saveButton=q('#saveButton'),newButton=q('#newButton'),opacitySlider=q('#opacitySlider'),fontSlider=q('#fontSlider'),colorPicker=q('#colorPicker'),backgroundButton=q('#backgroundButton'),backgroundEl=q('#background');
+const entriesEl=q('#entries'),homeButton=q('#homeButton'),textEl=q('#entryText'),statusEl=q('#status'),dateEl=q('#dateDisplay'),eventTimeEl=q('#eventTime'),editDateButton=q('#editDateButton'),recurrenceButton=q('#recurrenceButton'),saveButton=q('#saveButton'),newButton=q('#newButton'),opacitySlider=q('#opacitySlider'),fontSlider=q('#fontSlider'),colorPicker=q('#colorPicker'),backgroundButton=q('#backgroundButton'),backgroundEl=q('#background');
 let entries=[],backgrounds=[],backgroundIndex=0,currentId=null,dateFormat=Number(localStorage.getItem('memarisDateFormat')||0),recurrence='none',cleanState='';
 const recurrenceModes=['none','yearly','biweekly','weekly'];
 const recurrenceLabels={none:'↻ Off',yearly:'↻ Yearly',biweekly:'↻ 2 Weeks',weekly:'↻ Weekly'};
@@ -96,6 +96,7 @@ function revert(){
  textEl.value=e.text;eventTimeEl.value=localInputValue(eventValue(e));showDate(eventValue(e));setRecurrence(e.recurrence||'none');applyVisual(e);
  statusEl.textContent='Changes reverted.';markClean()
 }
+homeButton.addEventListener('click',()=>{const today=entriesEl.querySelector('.today-divider');if(today)today.scrollIntoView({behavior:'smooth',block:'center'})});
 newButton.addEventListener('click',async()=>{if(await saveIfNeeded())newEntry()});saveButton.addEventListener('click',revert);
 textEl.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='Enter')save()});
 textEl.addEventListener('input',updateDirty);
