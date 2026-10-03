@@ -20,8 +20,9 @@ function currentBackground(){return backgrounds[backgroundIndex]||''}
 function eventValue(e){return e.event_time||e.created}
 function todayISO(){return localInputValue().slice(0,10)}
 function editorState(){return JSON.stringify({text:textEl.value,event_time:eventTimeEl.value,recurrence,color:colorPicker.value,background:currentBackground(),glass:Number(opacitySlider.value),font_size:Number(fontSlider.value)})}
-function markClean(){cleanState=editorState()}
+function markClean(){cleanState=editorState();saveButton.disabled=true}
 function isDirty(){return editorState()!==cleanState}
+function updateDirty(){saveButton.disabled=!isDirty()}
 async function saveIfNeeded(){
  if(!isDirty())return true;
  if(!textEl.value.trim()){return true}
@@ -72,30 +73,38 @@ function render(){
 function openEntry(id){
  const e=entries.find(x=>x.id===id);if(!e)return;
  currentId=id;textEl.value=e.text;eventTimeEl.value=localInputValue(eventValue(e));showDate(eventValue(e));setRecurrence(e.recurrence||'none');applyVisual(e);
- statusEl.textContent=e.modified!==e.created?'Edited '+formats[0](dt(e.modified)):'Existing entry';saveButton.textContent='Update';markClean();render()
+ statusEl.textContent=e.modified!==e.created?'Edited '+formats[0](dt(e.modified)):'Existing entry';saveButton.textContent='↶ Revert';markClean();render()
 }
 function newEntry(){
- currentId=null;textEl.value='';eventTimeEl.value=localInputValue();showDate(eventTimeEl.value);setRecurrence('none');statusEl.textContent='New entry';saveButton.textContent='Save';markClean();render();textEl.focus()
+ currentId=null;textEl.value='';eventTimeEl.value=localInputValue();showDate(eventTimeEl.value);setRecurrence('none');statusEl.textContent='New entry';saveButton.textContent='↶ Revert';markClean();render();textEl.focus()
 }
 async function loadEntries(){const r=await fetch('/api/entries');entries=await r.json();render()}
 async function save(){
  const text=textEl.value.trim();if(!text)return false;
  const payload={text,event_time:eventTimeEl.value,recurrence,color:colorPicker.value,background:currentBackground(),glass:Number(opacitySlider.value),font_size:Number(fontSlider.value)};
- saveButton.disabled=true;statusEl.textContent='Saving…';
+ statusEl.textContent='Saving…';
  const url=currentId?'/api/entries/'+currentId:'/api/entries',method=currentId?'PUT':'POST';
  const r=await fetch(url,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
- if(r.ok){const saved=await r.json();currentId=saved.id;statusEl.textContent='Saved.';saveButton.textContent='Update';await loadEntries();eventTimeEl.value=localInputValue(eventValue(saved));showDate(eventValue(saved));setRecurrence(saved.recurrence||'none');applyVisual(saved);markClean();saveButton.disabled=false;return true}
- else{const d=await r.json();statusEl.textContent=d.error||'Could not save.';saveButton.disabled=false;return false}
+ if(r.ok){const saved=await r.json();currentId=saved.id;statusEl.textContent='Saved.';saveButton.textContent='↶ Revert';await loadEntries();eventTimeEl.value=localInputValue(eventValue(saved));showDate(eventValue(saved));setRecurrence(saved.recurrence||'none');applyVisual(saved);markClean();return true}
+ else{const d=await r.json();statusEl.textContent=d.error||'Could not save.';updateDirty();return false}
 }
 async function loadBackgrounds(){const r=await fetch('/api/backgrounds');backgrounds=await r.json();if(backgrounds.length){backgroundEl.style.backgroundImage='url("'+backgrounds[0]+'")'}}
-newButton.addEventListener('click',async()=>{if(await saveIfNeeded())newEntry()});saveButton.addEventListener('click',save);
+function revert(){
+ if(!isDirty())return;
+ if(!currentId){newEntry();return}
+ const e=entries.find(x=>x.id===currentId);if(!e)return;
+ textEl.value=e.text;eventTimeEl.value=localInputValue(eventValue(e));showDate(eventValue(e));setRecurrence(e.recurrence||'none');applyVisual(e);
+ statusEl.textContent='Changes reverted.';markClean()
+}
+newButton.addEventListener('click',async()=>{if(await saveIfNeeded())newEntry()});saveButton.addEventListener('click',revert);
 textEl.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='Enter')save()});
-opacitySlider.addEventListener('input',()=>document.documentElement.style.setProperty('--panel-alpha',opacitySlider.value/100));
-fontSlider.addEventListener('input',()=>document.documentElement.style.setProperty('--entry-size',fontSlider.value+'px'));
-colorPicker.addEventListener('input',()=>textEl.style.color=colorPicker.value);
+textEl.addEventListener('input',updateDirty);
+opacitySlider.addEventListener('input',()=>{document.documentElement.style.setProperty('--panel-alpha',opacitySlider.value/100);updateDirty()});
+fontSlider.addEventListener('input',()=>{document.documentElement.style.setProperty('--entry-size',fontSlider.value+'px');updateDirty()});
+colorPicker.addEventListener('input',()=>{textEl.style.color=colorPicker.value;updateDirty()});
 backgroundButton.addEventListener('click',()=>{if(!backgrounds.length)return;backgroundIndex=(backgroundIndex+1)%backgrounds.length;backgroundEl.style.backgroundImage='url("'+backgrounds[backgroundIndex]+'")'});
 dateEl.addEventListener('click',()=>{dateFormat=(dateFormat+1)%formats.length;localStorage.setItem('memarisDateFormat',dateFormat);showDate(eventTimeEl.value)});
 editDateButton.addEventListener('click',()=>{eventTimeEl.showPicker?eventTimeEl.showPicker():eventTimeEl.focus()});
-eventTimeEl.addEventListener('change',()=>showDate(eventTimeEl.value));
-recurrenceButton.addEventListener('click',()=>{setRecurrence(recurrenceModes[(recurrenceModes.indexOf(recurrence)+1)%recurrenceModes.length])});
+eventTimeEl.addEventListener('change',()=>{showDate(eventTimeEl.value);updateDirty()});
+recurrenceButton.addEventListener('click',()=>{setRecurrence(recurrenceModes[(recurrenceModes.indexOf(recurrence)+1)%recurrenceModes.length]);updateDirty()});
 (async()=>{await loadBackgrounds();await loadEntries();newEntry()})();
