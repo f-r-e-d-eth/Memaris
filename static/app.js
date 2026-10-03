@@ -47,10 +47,12 @@ function applyVisual(e={}){
 function render(){
  if(!entries.length){entriesEl.innerHTML='<div class="entry-preview">No entries yet.</div>';return}
  const shown=entries.map(e=>({e,d:displayOccurrence(e)})).sort((a,b)=>b.d-a.d);
- let day='',todayInserted=false,html='';
+ let day='',month='',year='',todayInserted=false,html='';
  for(const item of shown){
-   const e=item.e,d=item.d,iso=localInputValue(d).slice(0,10);
+   const e=item.e,d=item.d,iso=localInputValue(d).slice(0,10),itemMonth=iso.slice(0,7),itemYear=iso.slice(0,4);
    if(!todayInserted&&iso<=todayISO()){html+='<div class="today-divider"><span>TODAY</span></div>';todayInserted=true;day=''}
+   if(itemYear!==year){html+='<div class="year-divider"><span>'+esc(itemYear)+'</span></div>';year=itemYear;month='';day=''}
+   if(itemMonth!==month){html+='<div class="month-divider"><span>'+esc(itemMonth)+'</span></div>';month=itemMonth;day=''}
    if(iso!==day){html+='<div class="day">'+esc(iso)+'</div>';day=iso}
    const recur=e.recurrence&&e.recurrence!=='none'?'<span class="recurrence-mark" title="'+esc(recurrenceLabels[e.recurrence].replace('↻ ',''))+'">↻</span> ':'';
    html+='<div class="entry '+(e.id===currentId?'active':'')+'" data-id="'+e.id+'"><div class="entry-time">'+recur+d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',hour12:false})+'</div><div class="entry-preview" style="color:'+esc(e.color||'#ffffff')+'">'+esc(e.text)+'</div></div>'
