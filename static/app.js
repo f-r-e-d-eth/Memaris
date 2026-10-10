@@ -19,6 +19,22 @@ function showDate(value){dateEl.textContent=formats[dateFormat](dt(value))}
 function currentBackground(){return backgrounds[backgroundIndex]||''}
 function eventValue(e){return e.event_time||e.created}
 function todayISO(){return localInputValue().slice(0,10)}
+function untilLabel(iso){
+ const today=todayISO();
+ if(iso<=today)return '';
+ const [y,m,d]=iso.split('-').map(Number),[ty,tm,td]=today.split('-').map(Number);
+ const days=Math.round((Date.UTC(y,m-1,d)-Date.UTC(ty,tm-1,td))/86400000);
+ // Calendar-aware full months and years, clamping end-of-month dates.
+ const plusMonths=n=>{
+   const total=ty*12+(tm-1)+n,yy=Math.floor(total/12),mm=total%12;
+   return Date.UTC(yy,mm,Math.min(td,new Date(Date.UTC(yy,mm+1,0)).getUTCDate()));
+ };
+ let months=(y-ty)*12+(m-tm);
+ if(plusMonths(months)>Date.UTC(y,m-1,d))months--;
+ const amount=months>=12?Math.floor(months/12):months>=1?months:days>=7?Math.floor(days/7):days;
+ const unit=months>=12?'year':months>=1?'month':days>=7?'week':'day';
+ return ' (in '+amount+' '+unit+(amount===1?'':'s')+')';
+}
 function editorState(){return JSON.stringify({text:textEl.value,event_time:eventTimeEl.value,recurrence,color:colorPicker.value,background:currentBackground(),glass:Number(opacitySlider.value),font_size:Number(fontSlider.value)})}
 function markClean(){cleanState=editorState();saveButton.disabled=true}
 function isDirty(){return editorState()!==cleanState}
@@ -65,7 +81,7 @@ function render(){
    if(!todayInserted&&iso<=todayISO()){html+='<div class="today-divider"><span>TODAY</span></div>';todayInserted=true;day=''}
    if(itemYear!==year){html+='<div class="year-divider"><span>'+esc(itemYear)+'</span></div>';year=itemYear;month='';day=''}
    if(itemMonth!==month){html+='<div class="month-divider"><span>'+esc(itemMonth)+'</span></div>';month=itemMonth;day=''}
-   if(iso!==day){html+='<div class="day">'+esc(iso)+'</div>';day=iso}
+   if(iso!==day){html+='<div class="day">'+esc(iso+untilLabel(iso))+'</div>';day=iso}
    const recur=e.recurrence&&e.recurrence!=='none'?'<span class="recurrence-mark" title="'+esc(recurrenceLabels[e.recurrence].replace('↻ ',''))+'">↻</span> ':'';
    html+='<div class="entry '+(e.id===currentId?'active':'')+'" data-id="'+e.id+'"><div class="entry-time">'+recur+d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',hour12:false})+'</div><div class="entry-preview" style="color:'+esc(e.color||'#ffffff')+'">'+esc(e.text)+'</div></div>'
  }
