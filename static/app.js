@@ -1,5 +1,5 @@
 const q=s=>document.querySelector(s);
-const entriesEl=q('#entries'),homeButton=q('#homeButton'),textEl=q('#entryText'),statusEl=q('#status'),dateEl=q('#dateDisplay'),eventTimeEl=q('#eventTime'),editDateButton=q('#editDateButton'),recurrenceButton=q('#recurrenceButton'),saveButton=q('#saveButton'),newButton=q('#newButton'),opacitySlider=q('#opacitySlider'),fontSlider=q('#fontSlider'),colorPicker=q('#colorPicker'),backgroundButton=q('#backgroundButton'),backgroundEl=q('#background');
+const entriesEl=q('#entries'),homeButton=q('#homeButton'),searchInput=q('#searchInput'),clearSearch=q('#clearSearch'),textEl=q('#entryText'),statusEl=q('#status'),dateEl=q('#dateDisplay'),eventTimeEl=q('#eventTime'),editDateButton=q('#editDateButton'),recurrenceButton=q('#recurrenceButton'),saveButton=q('#saveButton'),newButton=q('#newButton'),opacitySlider=q('#opacitySlider'),fontSlider=q('#fontSlider'),colorPicker=q('#colorPicker'),backgroundButton=q('#backgroundButton'),backgroundEl=q('#background');
 let entries=[],backgrounds=[],backgroundIndex=0,currentId=null,dateFormat=Number(localStorage.getItem('memarisDateFormat')||0),recurrence='none',cleanState='';
 const recurrenceModes=['none','yearly','biweekly','weekly'];
 const recurrenceLabels={none:'↻ Off',yearly:'↻ Yearly',biweekly:'↻ 2 Weeks',weekly:'↻ Weekly'};
@@ -55,7 +55,10 @@ function applyVisual(e={}){
 }
 function render(){
  if(!entries.length){entriesEl.innerHTML='<div class="entry-preview">No entries yet.</div>';return}
- const shown=entries.map(e=>({e,d:displayOccurrence(e)})).sort((a,b)=>b.d-a.d);
+ const search=searchInput.value.trim().toLocaleLowerCase();
+ clearSearch.hidden=!searchInput.value;
+ const shown=entries.filter(e=>(e.text||'').toLocaleLowerCase().includes(search)).map(e=>({e,d:displayOccurrence(e)})).sort((a,b)=>b.d-a.d);
+ if(!shown.length){entriesEl.innerHTML='<div class="search-empty">No matching entries.</div>';return}
  let day='',month='',year='',todayInserted=false,html='';
  for(const item of shown){
    const e=item.e,d=item.d,iso=localInputValue(d).slice(0,10),itemMonth=iso.slice(0,7),itemYear=iso.slice(0,4);
@@ -96,6 +99,8 @@ function revert(){
  textEl.value=e.text;eventTimeEl.value=localInputValue(eventValue(e));showDate(eventValue(e));setRecurrence(e.recurrence||'none');applyVisual(e);
  statusEl.textContent='Changes reverted.';markClean()
 }
+searchInput.addEventListener('input',()=>{entriesEl.scrollTop=0;render()});
+clearSearch.addEventListener('click',()=>{searchInput.value='';entriesEl.scrollTop=0;render();searchInput.focus()});
 homeButton.addEventListener('click',()=>{const today=entriesEl.querySelector('.today-divider');if(today)today.scrollIntoView({behavior:'smooth',block:'center'})});
 newButton.addEventListener('click',async()=>{if(await saveIfNeeded())newEntry()});saveButton.addEventListener('click',revert);
 textEl.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='Enter')save()});
