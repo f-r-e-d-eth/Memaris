@@ -6,9 +6,27 @@ from uuid import uuid4
 from flask import Flask, jsonify, render_template, request
 
 BASE_DIR = Path(__file__).resolve().parent
-DATA_DIR = BASE_DIR / "data"
-ENTRIES_DIR = DATA_DIR / "entries"
-LEGACY_LOG = DATA_DIR / "logbook.txt"
+DEFAULT_DATA_DIR = BASE_DIR / "data"
+CONFIG_FILE = Path.home() / ".config" / "memaris" / "config.json"
+
+def data_dir():
+    try:
+        configured = json.loads(CONFIG_FILE.read_text(encoding="utf-8")).get("data_path")
+        if configured:
+            path = Path(configured).expanduser().resolve()
+            if path.is_dir():
+                return path
+    except (OSError, ValueError, TypeError, AttributeError):
+        pass
+    return DEFAULT_DATA_DIR.resolve()
+
+
+def entries_dir():
+    return data_dir() / "entries"
+
+
+def legacy_log():
+    return data_dir() / "logbook.txt"
 BACKGROUND_DIR = BASE_DIR / "static" / "backgrounds"
 RECURRENCES = {"none", "yearly", "biweekly", "weekly"}
 
@@ -16,12 +34,12 @@ app = Flask(__name__)
 
 
 def ensure_storage():
-    ENTRIES_DIR.mkdir(parents=True, exist_ok=True)
+    entries_dir().mkdir(parents=True, exist_ok=True)
     BACKGROUND_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def entry_path(entry_id):
-    return ENTRIES_DIR / f"{entry_id}.json"
+    return entries_dir() / f"{entry_id}.json"
 
 
 def parse_event_time(value, fallback):
@@ -38,9 +56,9 @@ def parse_recurrence(value):
 
 def migrate_legacy_log():
     ensure_storage()
-    if not LEGACY_LOG.exists() or list(ENTRIES_DIR.glob("*.json")):
+    if not legacy_log().exists() or list(entries_dir().glob("*.json")):
         return
-    blocks = [b.strip() for b in LEGACY_LOG.read_text(encoding="utf-8").split("\n---\n") if b.strip()]
+    blocks = [b.strip() for b in legacy_log().read_text(encoding="utf-8").split("\n---\n") if b.strip()]
     for block in blocks:
         lines = block.splitlines()
         if not lines or not (lines[0].startswith("[") and lines[0].endswith("]")):
@@ -69,7 +87,7 @@ def migrate_legacy_log():
 def read_entries():
     migrate_legacy_log()
     result = []
-    for path in ENTRIES_DIR.glob("*.json"):
+    for path in entries_dir().glob("*.json"):
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
             data["event_time"] = data.get("event_time") or data.get("created", "")
@@ -83,6 +101,31 @@ def read_entries():
 @app.get("/")
 def index():
     return render_template("index.html")
+
+
+@app.route("/api/folder", methods=["GET", "POST"])
+def folder():
+    if request.method == "POST":
+        payload = request.get_json(silent=True) or {}
+        supplied = payload.get("path")
+        if not isinstance(supplied, str) or not supplied.strip():
+            return jsonify({"error": "Enter a folder path."}), 400
+        path = Path(supplied.strip()).expanduser().resolve()
+        if not path.is_dir():
+            return jsonify({"error": "Folder does not exist."}), 400
+        try:
+            # Verify the folder is readable and writable before switching.
+            entries = path / "entries"
+            entries.mkdir(exist_ok=True)
+            probe = entries / (".memaris-check-" + uuid4().hex)
+            probe.write_text("", encoding="utf-8")
+            probe.unlink()
+            CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
+            CONFIG_FILE.write_text(json.dumps({"data_path": str(path)}, indent=2), encoding="utf-8")
+        except OSError as error:
+            return jsonify({"error": f"Cannot use folder: {error}"}), 400
+    path = data_dir()
+    return jsonify({"path": str(path), "name": path.name})
 
 
 @app.get("/api/entries")
