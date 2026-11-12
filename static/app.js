@@ -100,7 +100,7 @@ function newEntry(){
 async function loadFolder(){
  const r=await fetch('/api/folder'),data=await r.json();
  if(!r.ok)throw new Error(data.error||'Could not load folder');
- folderName.textContent=data.name;
+ folderName.textContent=data.path;
  folderButton.title='Data folder: '+data.path+' (click to change)';
  return data;
 }
