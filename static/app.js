@@ -1,5 +1,5 @@
 const q=s=>document.querySelector(s);
-const entriesEl=q('#entries'),homeButton=q('#homeButton'),searchInput=q('#searchInput'),clearSearch=q('#clearSearch'),textEl=q('#entryText'),statusEl=q('#status'),dateEl=q('#dateDisplay'),eventTimeEl=q('#eventTime'),editDateButton=q('#editDateButton'),recurrenceButton=q('#recurrenceButton'),saveButton=q('#saveButton'),newButton=q('#newButton'),opacitySlider=q('#opacitySlider'),fontSlider=q('#fontSlider'),colorPicker=q('#colorPicker'),backgroundButton=q('#backgroundButton'),backgroundEl=q('#background');
+const entriesEl=q('#entries'),homeButton=q('#homeButton'),searchInput=q('#searchInput'),clearSearch=q('#clearSearch'),textEl=q('#entryText'),statusEl=q('#status'),dateEl=q('#dateDisplay'),eventTimeEl=q('#eventTime'),editDateButton=q('#editDateButton'),recurrenceButton=q('#recurrenceButton'),saveButton=q('#saveButton'),newButton=q('#newButton'),opacitySlider=q('#opacitySlider'),fontSlider=q('#fontSlider'),colorPicker=q('#colorPicker'),backgroundButton=q('#backgroundButton'),backgroundEl=q('#background'),folderButton=q('#folderButton'),folderName=q('#folderName');
 let entries=[],backgrounds=[],backgroundIndex=0,currentId=null,dateFormat=Number(localStorage.getItem('memarisDateFormat')||0),recurrence='none',cleanState='';
 const recurrenceModes=['none','yearly','biweekly','weekly'];
 const recurrenceLabels={none:'↻ Off',yearly:'↻ Yearly',biweekly:'↻ 2 Weeks',weekly:'↻ Weekly'};
@@ -97,6 +97,27 @@ function openEntry(id){
 function newEntry(){
  currentId=null;textEl.value='';eventTimeEl.value=localInputValue();showDate(eventTimeEl.value);setRecurrence('none');statusEl.textContent='New entry';saveButton.textContent='↶ Revert';markClean();render();textEl.focus()
 }
+async function loadFolder(){
+ const r=await fetch('/api/folder'),data=await r.json();
+ if(!r.ok)throw new Error(data.error||'Could not load folder');
+ folderName.textContent=data.name;
+ folderButton.title='Data folder: '+data.path+' (click to change)';
+ return data;
+}
+async function switchFolder(){
+ if(!await saveIfNeeded())return;
+ const current=await loadFolder();
+ const chosen=prompt('Memaris data folder (existing folder path):',current.path);
+ if(chosen===null||!chosen.trim()||chosen.trim()===current.path)return;
+ try{
+   const r=await fetch('/api/folder',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path:chosen.trim()})});
+   const data=await r.json();
+   if(!r.ok)throw new Error(data.error||'Could not switch folder');
+   entries=[];currentId=null;
+   searchInput.value='';entriesEl.scrollTop=0;
+   await loadFolder();await loadEntries();newEntry();
+ }catch(error){alert(error.message)}
+}
 async function loadEntries(){const r=await fetch('/api/entries');entries=await r.json();render()}
 async function save(){
  const text=textEl.value.trim();if(!text)return false;
@@ -115,6 +136,7 @@ function revert(){
  textEl.value=e.text;eventTimeEl.value=localInputValue(eventValue(e));showDate(eventValue(e));setRecurrence(e.recurrence||'none');applyVisual(e);
  statusEl.textContent='Changes reverted.';markClean()
 }
+folderButton.addEventListener('click',switchFolder);
 searchInput.addEventListener('input',()=>{entriesEl.scrollTop=0;render()});
 clearSearch.addEventListener('click',()=>{searchInput.value='';entriesEl.scrollTop=0;render();searchInput.focus()});
 homeButton.addEventListener('click',()=>{const today=entriesEl.querySelector('.today-divider');if(today)today.scrollIntoView({behavior:'smooth',block:'center'})});
@@ -129,4 +151,4 @@ dateEl.addEventListener('click',()=>{dateFormat=(dateFormat+1)%formats.length;lo
 editDateButton.addEventListener('click',()=>{eventTimeEl.showPicker?eventTimeEl.showPicker():eventTimeEl.focus()});
 eventTimeEl.addEventListener('change',()=>{showDate(eventTimeEl.value);updateDirty()});
 recurrenceButton.addEventListener('click',()=>{setRecurrence(recurrenceModes[(recurrenceModes.indexOf(recurrence)+1)%recurrenceModes.length]);updateDirty()});
-(async()=>{await loadBackgrounds();await loadEntries();newEntry()})();
+(async()=>{await loadBackgrounds();await loadFolder();await loadEntries();newEntry()})();
