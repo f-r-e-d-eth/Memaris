@@ -40,3 +40,7 @@ Original journal text is the source of truth. Future AI features should add inte
 ## Status
 
 Memaris is a small personal project and intentionally simple. The current version is already used as an everyday logbook; future versions may add better navigation, search and optional local AI features.
+
+## Multiple data folders
+
+Click the folder name at the top-right of the editor to select any existing local folder by its absolute path (for example `/home/user/Documents/Memaris-Work`). Memaris stores entries in an `entries/` subfolder of the selected directory, creating it if needed. The current folder is remembered in `~/.config/memaris/config.json`. The original `data/entries/` remains untouched and is the default when no custom folder is configured. The application must have permission to read and write the selected directory. Folder switching saves unsaved non-empty edits before loading the other timeline. Run Memaris locally only: the folder selection API grants filesystem access to the server process.
